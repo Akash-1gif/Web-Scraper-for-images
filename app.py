@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request,jsonify
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -13,6 +13,7 @@ def index():
 def result():
     if request.method == 'POST':
         url = request.form['web_link']
+        messages=[]
         print("url obtained from user")
         try:
             r=requests.get(url)
@@ -46,11 +47,15 @@ def result():
                     continue
                 if(c==n):
                     print("all images downloaded")
+                    messages.append("All images downloaded")
                 else:
                     print(f"{c} out of {n} images downloaded")
-        except:
+                    messages.append(f"{c} out of {n} images downloaded")
+        except Exception as e:
             print("error, please check the url")
-    return render_template('index.html')
+            messages.append(f"Error: {str(e)}")
+
+    return jsonify({'messages': messages})
 
 
 if __name__ == '__main__':
