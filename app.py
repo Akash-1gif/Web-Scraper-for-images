@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request,jsonify
+from flask import Flask, render_template, request, jsonify
 import requests
 from bs4 import BeautifulSoup
-import os
 
 app = Flask(__name__)
 
@@ -12,51 +11,37 @@ def index():
 @app.route('/result', methods=['POST'])
 def result():
     if request.method == 'POST':
-        url = request.form['web_link']
-        messages=[]
-        print("url obtained from user")
+        url = request.form.get('web_link')
+        messages = []
+        errors = []
+        total = 0
         try:
-            r=requests.get(url)
-            print("website obtained")
-            soup=BeautifulSoup(r.text,'html.parser')
-            print("website parsed")
-            images=soup.find_all('img')
-            n=len(images)
-            c=0
-            for image in images:
+            r = requests.get(url)
+            r.raise_for_status()
+            soup = BeautifulSoup(r.text, 'html.parser')
+            images = soup.find_all('img')
+            total = len(images)
+            for c, image in enumerate(images):
                 try:
-                    link=(image['src'])
-                except:
-                    try:
-                        link=(image['data-srcset'])
-                    except:
-                        try:
-                            link=(image['data-src'])
-                        except:
-                            try:
-                                link=(image['data-fallback-src'])
-                            except:
-                                continue
-                try:
-                    s=requests.get(link).content
-                    with open(f"image{c+1}.jpg","wb+") as f:
-                        f.write(s)
-                    print(f"webscraper_image{c+1}.jpg downloaded")
-                    c+=1 
-                except:
-                    continue
-                if(c==n):
-                    print("all images downloaded")
-                    messages.append("All images downloaded")
-                else:
-                    print(f"{c} out of {n} images downloaded")
-                    messages.append(f"{c} out of {n} images downloaded")
-        except Exception as e:
-            print("error, please check the url")
-            messages.append(f"Error: {str(e)}")
+                    link = image.get('src') or image.get('data-srcset') or image.get('data-src') or image.get('data-fallback-src')
+                    if link:
+                        s = requests.get(link).content
+                        with open(f"image{c}.jpg", "wb+") as f:
+                            f.write(s)
+                        messages.append(f"Downloaded image {c}")
+                        print(f'downloaded {c} of {total}')
+                    else:
+                        errors.append(f"Skipped image {c}")
 
-    return jsonify({'messages': messages})
+                except Exception as e:
+                    errors.append(f"Error downloading image {c}: {str(e)}")
+                    print("All images downloaded")
 
+        except requests.exceptions.RequestException as e:
+            errors.append(f"Error: {str(e)}")
+
+    return jsonify({'messages': messages, 'total': total})
 
 if __name__ == '__main__':
     app.run()
+
